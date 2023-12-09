@@ -35,10 +35,13 @@ target_link_libraries(infoJsonNlohmann PRIVATE nlohmann_json::nlohmann_json)
 
 Сама библиотека находится по адресу: [nlohmann](https://json.nlohmann.me/integration/cmake/#supporting-both)
 
-Теперь можем подключить библиотеку к модулю:
+Теперь можем подключить библиотеку к модулю.
+И для того чтобы не использовать области имён, подключаем:
 
 ```c++
 #include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 ```
 
 </details>
