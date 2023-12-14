@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <cpr/cpr.h>
 #include <nlohmann/json.hpp>
 
 using std::cout;
@@ -9,7 +10,7 @@ using std::string;
 using json = nlohmann::json;
 
 // Примеры создания json объекта обычным присваиванием как в JS
-void createSimpleJDoc() {
+[[maybe_unused]] void createSimpleJDoc() {
     json jDoc;
     // (string, boolean, int)
     jDoc["movie"] = "Star wars";
@@ -30,7 +31,7 @@ void createSimpleJDoc() {
     cout << jDoc.dump(2) << endl;
 }
 
-void printDoc() {
+[[maybe_unused]] void printDoc() {
     string data{R"({"name": "Roderick", "guild": {"name": "Reds"}})"};
     json jDoc(json::parse(data));
     // Без конвертации в string можем распечатать json или целиком ...
@@ -39,7 +40,7 @@ void printDoc() {
     cout << "Part: " << jDoc["guild"] << endl;
 }
 
-void convertJDocToString() {
+[[maybe_unused]] void convertJDocToString() {
     string data{R"({"name": "Roderick", "guild": {"name": "Reds"}})"};
     json jDoc(json::parse(data));
 
@@ -50,7 +51,7 @@ void convertJDocToString() {
     cout << data2 << endl;
 }
 
-void createJsObj() {
+[[maybe_unused]] void createJsObj() {
     string ageTitle = "age";
     string ageCount = "36";
     // Создать строку с json объектом. Важно: это именно строка
@@ -78,7 +79,7 @@ void createJsObj() {
     catch(json::exception &e) { cout << e.what() << endl; } // key 'some' not found
 }
 
-void createJsArr() {
+[[maybe_unused]] void createJsArr() {
     string personName = "John";
     // Создаём js массив
     string data{R"(["John", "Nick", ")" + personName + R"(", "Anne"])"};
@@ -91,7 +92,7 @@ void createJsArr() {
     cout << "name in array: " << item << endl;
 }
 
-void validateJson() {
+[[maybe_unused]] void validateJson() {
     string data{R"({"first": "John", "second": "Anne"})"};
 
     // Можно узнать, корректно ли конвертируется строка в Json объект
@@ -101,7 +102,7 @@ void validateJson() {
 }
 
 // Можно разобрать строку с массивом как единый объект
-void parseDataAsWholeWithGet() {
+[[maybe_unused]] void parseDataAsWholeWithGet() {
     json jDoc(json::parse(R"([1,6,6,8])"));
 
     // Вариант, если хотим инициализировать переменную
@@ -115,7 +116,7 @@ void parseDataAsWholeWithGet() {
 }
 
 // Можно разобрать строку по частям
-void parseDataAsPartsWithGet() {
+[[maybe_unused]] void parseDataAsPartsWithGet() {
     string data{R"({
         "greeting": "Hello, World",
         "numbers": [1,2,3]
@@ -132,7 +133,7 @@ void parseDataAsPartsWithGet() {
     for (const auto &number : numbers) { cout << number << " "; }
 }
 
-void parseDataToMap() {
+[[maybe_unused]] void parseDataToMap() {
     string data{R"({"name": "Roderick", "role": "Barbarian"})"};
 
     std::map<string, string> Map;
@@ -142,6 +143,73 @@ void parseDataToMap() {
     jDoc.get_to(Map);
 
     cout << Map["name"] << ": " << Map["role"] << endl;
+}
+
+// Get запрос
+[[maybe_unused]] void requestGet() {
+    cpr::Url URL{"https://www.dnd5eapi.co/api/monsters/giant-spider"};
+
+    cpr::Response response{cpr::Get(URL)};
+
+    // Контролируем правильность ответа
+    if (response.status_code == 0) { std::cerr << response.error.message << endl; }
+
+    // Можем получить информацию о заголовках
+    cout << "Headers: " << endl;
+    // Можем преобразовать в std::map
+    // Ключи заголовков, кстати, нечувствительны к регистру
+    for (const auto &[key, value] : response.header) { cout << "  - " << key << ": " << value << endl; }
+
+    // Можем получить информацию об отдельном заголовке. Ключи, при этом, нечувствительны к регистру
+    cout << "  - type: " << response.header["Content-Type"] << " == " << response.header["content-type"] << endl;
+
+    // ---
+    auto jDoc(json::parse(response.text));
+    // Обратим внимание: конвертировать header не получится
+    // auto result(json::parse(response.header));
+
+    // Можем получить все данные по body. И распечатать как строку
+    cout << "---------------------" << endl;
+    cout << "Body: " << endl;
+    cout << jDoc.dump(2) << endl;
+
+    try {
+        // Можем обратиться к конкретному свойству
+        auto name{jDoc.at("name").get<string>()};
+        auto desc{jDoc.at("desc").get<string>()};
+        auto speed(jDoc.at("speed").at("walk").get<string>());
+        cout << "name: " << name << endl;
+        cout << "desc: " << desc << endl;
+        cout << "speed: " << speed << endl;
+    }
+    catch (json::exception &e) {
+        cout << e.what() << endl;
+    }
+}
+
+[[maybe_unused]] void requestPost() {
+    cpr::Url URL("https://www.httpbin.org/post");
+    // Можем явно заголовок указать
+    cpr::Header Headers{ {"content-type", "application/json"} };
+
+    json jDoc(json::parse(R"({"cat": "meow", "dog": "bark"})"));
+
+    // Можно сделать аналогично
+    // using namespace nlohmann::literals;
+    // json jDoc(R"({"cat": "meow", "dog": "bark"})"_json);
+
+    // Поместим данные в тело запроса
+    cpr::Body Body(jDoc.dump());
+
+    // Сам Post запрос
+    cpr::Response Response(cpr::Post(URL, Headers, Body));
+
+    for (const auto &[key, value] : Response.header) {
+        cout << key << " --- " << value << endl;
+    }
+
+    cout << "Body:" << endl;
+    cout << Response.text << endl;
 }
 
 int main() {
@@ -154,6 +222,16 @@ int main() {
     // parseDataAsWholeWithGet();
     // parseDataAsPartsWithGet();
     // parseDataToMap();
+    // requestGet();
+    // requestPost();
+
+    using namespace nlohmann::literals;
+
+    json jDocA(R"({"Cat": "Meow", "Dog": "Bark"})");
+    json jDocB(R"({"Cat": "Meow", "Dog": "Bark"})"_json);
+
+    cout << jDocA.dump() << endl;
+    cout << jDocB.dump() << endl;
 
     return 0;
 }

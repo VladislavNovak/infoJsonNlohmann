@@ -44,6 +44,8 @@ target_link_libraries(infoJsonNlohmann PRIVATE nlohmann_json::nlohmann_json)
 using json = nlohmann::json;
 ```
 
+Как подключить ещё дополнительные библиотеки (например, cpr) - можно увидеть в файле CMake в корне проекта
+
 </details>
 
 <details open>
@@ -61,6 +63,8 @@ using json = nlohmann::json;
     * [`parseDataAsWholeWithGet`](#parsedataaswholewithget)
     * [`parseDataAsPartsWithGet`](#parsedataaspartswithget)
     * [`parseDataToMap`](#parsedatatomap)
+    * [`requestGet`](#requestget)
+    * [`requestPost`](#requestpost)
 <!-- TOC -->
 
 # Main
@@ -248,6 +252,104 @@ void parseDataToMap() {
     jDoc.get_to(Map);
 
     cout << Map["name"] << ": " << Map["role"] << endl;
+}
+```
+
+---
+### `requestGet`
+
+Сделаем просто get request.
+
+```c++
+void requestGet() {
+    cpr::Url URL{"https://www.dnd5eapi.co/api/monsters/giant-spider"};
+    
+    cpr::Response response{cpr::Get(URL)};
+    
+    // Контролируем правильность ответа
+    if (response.status_code == 0) { std::cerr << response.error.message << endl; }
+    
+    // Можем получить информацию о заголовках
+    cout << "Headers: " << endl;
+    // Можем преобразовать в std::map
+    // Ключи заголовков, кстати, нечувствительны к регистру
+    for (const auto &[key, value] : response.header) { cout << "  - " << key << ": " << value << endl; }
+    
+    // Можем получить информацию об отдельном заголовке. Ключи, при этом, нечувствительны к регистру
+    cout << "  - type: " << response.header["Content-Type"] << " == " << response.header["content-type"] << endl;
+    
+    // ---
+    auto jDoc(json::parse(response.text));
+    // Обратим внимание: конвертировать header не получится
+    // auto result(json::parse(response.header));
+    
+    // Можем получить все данные по body. И распечатать как строку
+    cout << "---------------------" << endl;
+    cout << "Body: " << endl;
+    cout << jDoc.dump(2) << endl;
+    
+    try {
+        // Можем обратиться к конкретному свойству
+        auto name{jDoc.at("name").get<string>()};
+        auto desc{jDoc.at("desc").get<string>()};
+        auto speed(jDoc.at("speed").at("walk").get<string>());
+        cout << "name: " << name << endl;
+        cout << "desc: " << desc << endl;
+        cout << "speed: " << speed << endl;
+    }
+        catch (json::exception &e) {
+        cout << e.what() << endl;
+    }
+}
+```
+
+Из объекта Response мы можем извлечь такую информацию как:
+
+```text
+    long status_code;               // The HTTP status code for the request
+    std::string text;               // The body of the HTTP response
+    Header header;                  // A map-like collection of the header fields
+    Url url;                        // The effective URL of the ultimate request
+    double elapsed;                 // The total time of the request in seconds
+    Cookies cookies;                // A vector-like collection of cookies returned in the request
+    Error error;                    // An error object containing the error code and a message
+    std::string raw_header;         // The raw header string
+    std::string status_line;        // The status line of the response
+    std::string reason;             // The reason for the status code
+    cpr_off_t uploaded_bytes;       // How many bytes have been send to the server
+    cpr_off_t downloaded_bytes;     // How many bytes have been received from the server
+    long redirect_count;            // How many redirects occurred
+```
+
+---
+### `requestPost`
+
+Делаем post request
+
+```c++
+void requestPost() {
+    cpr::Url URL("https://www.httpbin.org/post");
+    // Можем явно заголовок указать
+    cpr::Header Headers{ {"content-type", "application/json"} };
+
+    json jDoc(json::parse(R"({"cat": "meow", "dog": "bark"})"));
+
+    // Можно сделать аналогично
+    // using namespace nlohmann::literals;
+    // json jDoc(R"({"cat": "meow", "dog": "bark"})"_json);
+
+    // Поместим данные в тело запроса
+    cpr::Body Body(jDoc.dump());
+
+    // Сам Post запрос
+    cpr::Response Response(cpr::Post(URL, Headers, Body));
+
+    for (const auto &[key, value] : Response.header) {
+        cout << key << " --- " << value << endl;
+    }
+
+    cout << "Body:" << endl;
+    cout << Response.text << endl;
 }
 ```
 
