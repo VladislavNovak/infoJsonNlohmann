@@ -212,6 +212,33 @@ using json = nlohmann::json;
     cout << Response.text << endl;
 }
 
+void asyncCallbackGet() {
+    bool isRun = true;
+    cpr::Url URL("https://www.dnd5eapi.co/api/monsters/giant-spider");
+
+    // isRun позволит не завершаться программе, пока не получили ответ от сервера
+    auto callback{[&isRun](const cpr::Response &r) {
+        json jDoc(json::parse(r.text));
+
+        if (r.status_code == 200) {
+            cout << "Request lasted " << r.elapsed << endl;
+            try { cout << jDoc.at("name").get<string>() << endl; }
+            catch (json::exception &e) { cout << "Something wrong: " << e.what() << endl; }
+        }
+
+        isRun = false;
+    }};
+
+    cout << "Loading..." << endl;
+    cpr::GetCallback(callback, URL);
+    // Несмотря на то, что ожидается ответ от сервера, можно выполнять какие-то параллельные действия
+    cout << "Some kind of parallel calls" << endl;
+
+    while (isRun) {}
+
+    cout << "The end" << endl;
+}
+
 int main() {
     // createSimpleJDoc();
     // printDoc();
@@ -224,14 +251,7 @@ int main() {
     // parseDataToMap();
     // requestGet();
     // requestPost();
-
-    using namespace nlohmann::literals;
-
-    json jDocA(R"({"Cat": "Meow", "Dog": "Bark"})");
-    json jDocB(R"({"Cat": "Meow", "Dog": "Bark"})"_json);
-
-    cout << jDocA.dump() << endl;
-    cout << jDocB.dump() << endl;
+    // asyncCallbackGet
 
     return 0;
 }

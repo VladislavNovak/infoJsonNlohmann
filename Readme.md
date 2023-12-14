@@ -63,8 +63,10 @@ using json = nlohmann::json;
     * [`parseDataAsWholeWithGet`](#parsedataaswholewithget)
     * [`parseDataAsPartsWithGet`](#parsedataaspartswithget)
     * [`parseDataToMap`](#parsedatatomap)
+  * [CPR requests](#cpr-requests)
     * [`requestGet`](#requestget)
     * [`requestPost`](#requestpost)
+    * [`asyncCallbackGet`](#asynccallbackget)
 <!-- TOC -->
 
 # Main
@@ -255,6 +257,8 @@ void parseDataToMap() {
 }
 ```
 
+## CPR requests
+
 ---
 ### `requestGet`
 
@@ -350,6 +354,46 @@ void requestPost() {
 
     cout << "Body:" << endl;
     cout << Response.text << endl;
+}
+```
+
+---
+### `asyncCallbackGet`
+
+Обычные вызовы тормозят процесс до получения ответа с удаленного адреса. 
+
+Используя коллбэки, можно не дожидаясь ответа от сервера продолжать делать некие действия.
+
+Единственное, на что следует обратить внимание, это на то, что программа может завершиться до того, 
+как мы получим данные с удаленного ресурса. Чтобы избежать подобной ситуации, вводится флаг, 
+который запускает цикл, выполняющийся до момента получения ответа от сервера
+
+```c++
+void asyncCallbackGet() {
+    bool isRun = true;
+    cpr::Url URL("https://www.dnd5eapi.co/api/monsters/giant-spider");
+
+    // isRun позволит не завершаться программе, пока не получили ответ от сервера
+    auto callback{[&isRun](const cpr::Response &r) {
+        json jDoc(json::parse(r.text));
+
+        if (r.status_code == 200) {
+            cout << "Request lasted " << r.elapsed << endl;
+            try { cout << jDoc.at("name").get<string>() << endl; }
+            catch (json::exception &e) { cout << "Something wrong: " << e.what() << endl; }
+        }
+
+        isRun = false;
+    }};
+
+    cout << "Loading..." << endl;
+    cpr::GetCallback(callback, URL);
+    // Несмотря на то, что ожидается ответ от сервера, можно выполнять какие-то параллельные действия
+    cout << "Some kind of parallel calls" << endl;
+
+    while (isRun) {}
+
+    cout << "The end" << endl;
 }
 ```
 
